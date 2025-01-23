@@ -1,9 +1,8 @@
 import readline from "readline/promises";
 // import fetch from "node-fetch";
 
-
-const API_KEY = `9a09bff909d63bd02c984718e8395fe4`;
-const BASE_URL = `https://api.openweathermap.org/data/2.5/weather`;
+const API_KEY = process.env.API_KEY;
+const BASE_URL = process.env.BASE_URL;
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -32,7 +31,7 @@ const getWeather = async (city) => {
 };
 
 const main = async () => {
-  const city = await rl.question("Enter a city name to get its weather: "); // Added `await`
+  const city = await rl.question("Enter a city name to get its weather: ");
   await getWeather(city);
   rl.close();
 };
