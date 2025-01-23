@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "fs/promises"; // Use fs/promises for promise-based API
+import { readFile, writeFile } from "fs/promises";
 import { createServer } from "http";
 import crypto from "crypto";
 import path from "path";
@@ -12,7 +12,7 @@ const serveFile = async (res, filePath, contentType) => {
     res.writeHead(200, { "Content-Type": contentType });
     res.end(data);
   } catch (error) {
-    res.writeHead(404, { "Content-Type": contentType });
+    res.writeHead(404, { "Content-Type": "text/plain" });
     res.end("404 page not found");
   }
 };
@@ -20,11 +20,11 @@ const serveFile = async (res, filePath, contentType) => {
 const loadLinks = async () => {
   try {
     const data = await readFile(DATA_FILE, "utf-8");
-    return data ? JSON.parse(data) : {}; // If file is empty, return an empty object
+    return data ? JSON.parse(data) : {};
   } catch (error) {
     if (error.code === "ENOENT") {
-      await writeFile(DATA_FILE, JSON.stringify({})); // Create the file if it doesn't exist
-      return {}; // Return an empty object
+      await writeFile(DATA_FILE, JSON.stringify({}));
+      return {};
     }
     throw error;
   }
@@ -32,7 +32,7 @@ const loadLinks = async () => {
 
 const savedLinks = async (links) => {
   try {
-    await writeFile(DATA_FILE, JSON.stringify(links)); // Write the updated links to the file
+    await writeFile(DATA_FILE, JSON.stringify(links));
   } catch (error) {
     console.error("Error saving links:", error);
   }
@@ -45,22 +45,26 @@ const server = createServer(async (req, res) => {
     } else if (req.url === "/style.css") {
       return serveFile(res, path.join("public", "style.css"), "text/css");
     } else if (req.url === "/index.js") {
-      return serveFile(
-        res,
-        path.join("public", "index.js"),
-        "application/javascript"
-      ); // Content type fixed: application/javascript
+      return serveFile(res, path.join("public", "index.js"), "application/javascript");
     } else if (req.url === "/links") {
       const links = await loadLinks();
       res.writeHead(200, { "Content-Type": "application/json" });
       return res.end(JSON.stringify(links));
+    } else {
+      const links = await loadLinks();
+      const shortCode = req.url.slice(1);
+      if (links[shortCode]) {
+        res.writeHead(302, { Location: links[shortCode] });
+        return res.end();
+      } else {
+        res.writeHead(404, { "Content-Type": "text/plain" });
+        return res.end("Shortened URL not found");
+      }
     }
   }
 
   if (req.method === "POST" && req.url === "/shorten") {
-    const links = await loadLinks();
     let body = "";
-
     req.on("data", (chunk) => (body += chunk));
 
     req.on("end", async () => {
@@ -71,15 +75,16 @@ const server = createServer(async (req, res) => {
           return res.end("URL is required");
         }
 
-        const finalShortCode =
-          shortCode || crypto.randomBytes(4).toString("hex");
+        const finalShortCode = shortCode || crypto.randomBytes(4).toString("hex");
+        const links = await loadLinks();
+
         if (links[finalShortCode]) {
           res.writeHead(400, { "Content-Type": "text/plain" });
           return res.end("Short code already exists. Please choose another!");
         }
 
         links[finalShortCode] = url;
-        await savedLinks(links); // Save the updated links
+        await savedLinks(links);
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ success: true, shortCode: finalShortCode }));
       } catch (error) {
